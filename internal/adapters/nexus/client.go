@@ -80,7 +80,36 @@ func (c *Client) Balance(ctx context.Context, address string) (*big.Int, error) 
 }
 
 // SendETH sends native currency to an address, returns tx hash
+// Gets nonce automatically from the RPC (not safe for concurrent use with same wallet)
 func (c *Client) SendETH(ctx context.Context, privateKeyHex string, to string, amount *big.Int) (string, error) {
+	if c.client == nil {
+		return "", fmt.Errorf("client not connected")
+	}
+
+	// parse private key to get from address
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		return "", fmt.Errorf("invalid private key: %w", err)
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("failed to get public key")
+	}
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	// get nonce from RPC
+	nonce, err := c.client.PendingNonceAt(ctx, fromAddress)
+	if err != nil {
+		return "", fmt.Errorf("failed to get nonce: %w", err)
+	}
+
+	return c.SendETHWithNonce(ctx, privateKeyHex, to, amount, nonce)
+}
+
+// SendETHWithNonce sends native currency with a specific nonce
+// Use this for concurrent bots with a shared nonce manager
+func (c *Client) SendETHWithNonce(ctx context.Context, privateKeyHex string, to string, amount *big.Int, nonce uint64) (string, error) {
 	if c.client == nil {
 		return "", fmt.Errorf("client not connected")
 	}
@@ -91,25 +120,11 @@ func (c *Client) SendETH(ctx context.Context, privateKeyHex string, to string, a
 		return "", fmt.Errorf("invalid private key: %w", err)
 	}
 
-	// get public key and address from private key
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return "", fmt.Errorf("failed to get public key")
-	}
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
 	// validate to address
 	if !common.IsHexAddress(to) {
 		return "", fmt.Errorf("invalid to address: %s", to)
 	}
 	toAddress := common.HexToAddress(to)
-
-	// get nonce (automatic)
-	nonce, err := c.client.PendingNonceAt(ctx, fromAddress)
-	if err != nil {
-		return "", fmt.Errorf("failed to get nonce: %w", err)
-	}
 
 	// estimate gas price
 	gasPrice, err := c.client.SuggestGasPrice(ctx)
@@ -136,6 +151,17 @@ func (c *Client) SendETH(ctx context.Context, privateKeyHex string, to string, a
 	}
 
 	return signedTx.Hash().Hex(), nil
+}
+
+// GetNonce returns the current pending nonce for an address
+func (c *Client) GetNonce(ctx context.Context, address string) (uint64, error) {
+	if c.client == nil {
+		return 0, fmt.Errorf("client not connected")
+	}
+	if !common.IsHexAddress(address) {
+		return 0, fmt.Errorf("invalid address: %s", address)
+	}
+	return c.client.PendingNonceAt(ctx, common.HexToAddress(address))
 }
 
 // Close gracefully closes the RPC connection

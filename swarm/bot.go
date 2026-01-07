@@ -5,9 +5,11 @@ import (
 	"log"
 	"math/big"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/nexus-bot-swarm/domain"
+	"github.com/nexus-bot-swarm/internal/nonce"
 	"github.com/nexus-bot-swarm/ports"
 )
 
@@ -18,6 +20,7 @@ type Bot struct {
 	client        ports.BlockchainClient
 	privateKey    string
 	walletAddress string
+	nonceManager  *nonce.Manager
 }
 
 // NewBot creates a new bot with the given ID and pool reference
@@ -29,19 +32,20 @@ func NewBot(id int, pool *domain.Pool) *Bot {
 }
 
 // NewBotWithClient creates a bot that can send real transactions
-func NewBotWithClient(id int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string) *Bot {
+func NewBotWithClient(id int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string, nonceManager *nonce.Manager) *Bot {
 	return &Bot{
 		ID:            id,
 		pool:          pool,
 		client:        client,
 		privateKey:    privateKey,
 		walletAddress: walletAddress,
+		nonceManager:  nonceManager,
 	}
 }
 
 // CanSendRealTX returns true if bot is configured for real transactions
 func (b *Bot) CanSendRealTX() bool {
-	return b.client != nil && b.privateKey != "" && b.walletAddress != ""
+	return b.client != nil && b.privateKey != "" && b.walletAddress != "" && b.nonceManager != nil
 }
 
 // Run starts the bot's main loop
@@ -59,7 +63,7 @@ func (b *Bot) Run(ctx context.Context, errCh chan<- error) {
 	if b.CanSendRealTX() {
 		realTxTicker = time.NewTicker(5 * time.Second)
 		defer realTxTicker.Stop()
-		log.Printf("[Bot %d] Started (real TX enabled)", b.ID)
+		log.Printf("[Bot %d] Started (real TX enabled with nonce manager)", b.ID)
 	} else {
 		log.Printf("[Bot %d] Started (simulation only)", b.ID)
 	}
@@ -115,16 +119,48 @@ func (b *Bot) performRealTX(ctx context.Context) {
 		return
 	}
 
+	// get nonce from manager (atomic, no collisions)
+	txNonce := b.nonceManager.GetNonce()
+
 	// send 1 wei to self
 	amount := big.NewInt(1)
 
-	log.Printf("[Bot %d] 📤 Sending real TX (1 wei to self)...", b.ID)
+	log.Printf("[Bot %d] 📤 Sending TX with nonce %d...", b.ID, txNonce)
 
-	txHash, err := b.client.SendETH(ctx, b.privateKey, b.walletAddress, amount)
+	txHash, err := b.client.SendETHWithNonce(ctx, b.privateKey, b.walletAddress, amount, txNonce)
 	if err != nil {
-		log.Printf("[Bot %d] ❌ Real TX failed: %v", b.ID, err)
+		log.Printf("[Bot %d] ❌ TX failed (nonce %d): %v", b.ID, txNonce, err)
+
+		// if nonce too low, sync with RPC
+		if isNonceTooLowError(err) {
+			b.syncNonce(ctx)
+		}
 		return
 	}
 
-	log.Printf("[Bot %d] ✅ Real TX sent: %s", b.ID, txHash)
+	log.Printf("[Bot %d] ✅ TX sent (nonce %d): %s", b.ID, txNonce, txHash)
+}
+
+// isNonceTooLowError checks if the error is a nonce too low error
+func isNonceTooLowError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "nonce too low") || strings.Contains(errStr, "already known")
+}
+
+// syncNonce fetches the current nonce from RPC and updates the manager
+func (b *Bot) syncNonce(ctx context.Context) {
+	newNonce, err := b.client.GetNonce(ctx, b.walletAddress)
+	if err != nil {
+		log.Printf("[Bot %d] ⚠️ Failed to sync nonce: %v", b.ID, err)
+		return
+	}
+
+	currentNonce := b.nonceManager.Current()
+	if newNonce > currentNonce {
+		b.nonceManager.Reset(newNonce)
+		log.Printf("[Bot %d] 🔄 Nonce synced: %d → %d", b.ID, currentNonce, newNonce)
+	}
 }

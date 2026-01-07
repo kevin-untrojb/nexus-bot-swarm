@@ -64,10 +64,17 @@ func main() {
 
 	var botSwarm *swarm.Swarm
 	if cfg.PrivateKey != "" && cfg.WalletAddress != "" {
-		// real TX mode
-		botSwarm = swarm.NewSwarmWithClient(cfg.BotCount, pool, client, cfg.PrivateKey, cfg.WalletAddress)
+		// get current nonce from RPC
+		startNonce, err := client.GetNonce(connectCtx, cfg.WalletAddress)
+		if err != nil {
+			log.Fatalf("❌ Failed to get nonce: %v", err)
+		}
+		log.Printf("🔢 Starting nonce: %d", startNonce)
+
+		// real TX mode with nonce manager
+		botSwarm = swarm.NewSwarmWithClient(cfg.BotCount, pool, client, cfg.PrivateKey, cfg.WalletAddress, startNonce)
 		log.Printf("🤖 Swarm started with %d bots (REAL TX MODE). Press Ctrl+C to stop...", cfg.BotCount)
-		log.Printf("💸 Bots will send real transactions every 5 seconds")
+		log.Printf("💸 Bots will send real transactions every 5 seconds (with nonce manager)")
 	} else {
 		// simulation only
 		botSwarm = swarm.NewSwarm(cfg.BotCount, pool)

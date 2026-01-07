@@ -23,6 +23,12 @@ type BlockchainClient interface {
 	// SendETH sends native currency to an address, returns tx hash
 	SendETH(ctx context.Context, privateKey string, to string, amount *big.Int) (string, error)
 
+	// SendETHWithNonce sends native currency with a specific nonce (for concurrent use)
+	SendETHWithNonce(ctx context.Context, privateKey string, to string, amount *big.Int, nonce uint64) (string, error)
+
+	// GetNonce returns the current pending nonce for an address
+	GetNonce(ctx context.Context, address string) (uint64, error)
+
 	// Close gracefully closes the connection
 	Close()
 }

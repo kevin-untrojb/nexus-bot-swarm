@@ -6,13 +6,15 @@ import (
 	"sync"
 
 	"github.com/nexus-bot-swarm/domain"
+	"github.com/nexus-bot-swarm/internal/nonce"
 	"github.com/nexus-bot-swarm/ports"
 )
 
 // Swarm coordinates multiple bots operating on a shared pool
 type Swarm struct {
-	bots []*Bot
-	pool *domain.Pool
+	bots         []*Bot
+	pool         *domain.Pool
+	nonceManager *nonce.Manager
 }
 
 // NewSwarm creates a swarm with the specified number of bots (simulation only)
@@ -28,14 +30,20 @@ func NewSwarm(botCount int, pool *domain.Pool) *Swarm {
 }
 
 // NewSwarmWithClient creates a swarm that can send real transactions
-func NewSwarmWithClient(botCount int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string) *Swarm {
+// startNonce should be fetched from the RPC before calling this
+func NewSwarmWithClient(botCount int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string, startNonce uint64) *Swarm {
+	// create shared nonce manager
+	nm := nonce.NewManager(startNonce)
+
 	bots := make([]*Bot, botCount)
 	for i := 0; i < botCount; i++ {
-		bots[i] = NewBotWithClient(i+1, pool, client, privateKey, walletAddress)
+		// all bots share the same nonce manager
+		bots[i] = NewBotWithClient(i+1, pool, client, privateKey, walletAddress, nm)
 	}
 	return &Swarm{
-		bots: bots,
-		pool: pool,
+		bots:         bots,
+		pool:         pool,
+		nonceManager: nm,
 	}
 }
 
