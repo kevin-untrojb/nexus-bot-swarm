@@ -8,9 +8,9 @@ import (
 
 // Pool represents an AMM liquidity pool with two tokens
 // Uses constant product formula: x * y = k
-// Thread-safe for concurrent access
+// Thread-safe for concurrent access (RWMutex for read/write optimization)
 type Pool struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	TokenA   string
 	TokenB   string
 	ReserveA *big.Int
@@ -75,8 +75,8 @@ func (p *Pool) SwapBForA(amountIn *big.Int) (*big.Int, error) {
 
 // PriceAInB returns the price of TokenA in terms of TokenB
 func (p *Pool) PriceAInB() float64 {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	a := new(big.Float).SetInt(p.ReserveA)
 	b := new(big.Float).SetInt(p.ReserveB)
@@ -87,8 +87,8 @@ func (p *Pool) PriceAInB() float64 {
 
 // PriceBInA returns the price of TokenB in terms of TokenA
 func (p *Pool) PriceBInA() float64 {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	a := new(big.Float).SetInt(p.ReserveA)
 	b := new(big.Float).SetInt(p.ReserveB)
