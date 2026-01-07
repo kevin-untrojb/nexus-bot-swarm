@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -51,6 +52,28 @@ func (c *Client) Connect(ctx context.Context) error {
 // ChainID returns the connected chain's ID
 func (c *Client) ChainID() *big.Int {
 	return c.chainID
+}
+
+// BlockNumber returns the current block number
+func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
+	if c.client == nil {
+		return 0, fmt.Errorf("client not connected")
+	}
+	return c.client.BlockNumber(ctx)
+}
+
+// Balance returns the balance of an address in wei
+func (c *Client) Balance(ctx context.Context, address string) (*big.Int, error) {
+	if c.client == nil {
+		return nil, fmt.Errorf("client not connected")
+	}
+
+	if !common.IsHexAddress(address) {
+		return nil, fmt.Errorf("invalid address: %s", address)
+	}
+
+	addr := common.HexToAddress(address)
+	return c.client.BalanceAt(ctx, addr, nil)
 }
 
 // Close gracefully closes the RPC connection

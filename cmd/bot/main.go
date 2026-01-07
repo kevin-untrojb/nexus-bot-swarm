@@ -36,6 +36,13 @@ func main() {
 
 	log.Printf("✅ Connected to Nexus Testnet (Chain ID: %d)", client.ChainID().Int64())
 
+	// Show current block to prove connection works
+	blockNum, err := client.BlockNumber(ctx)
+	if err != nil {
+		log.Fatalf("❌ Failed to get block number: %v", err)
+	}
+	log.Printf("📦 Current block: %d", blockNum)
+
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

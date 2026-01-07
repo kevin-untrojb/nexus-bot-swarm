@@ -16,6 +16,9 @@ type Config struct {
 
 	// Number of bots in the swarm
 	BotCount int
+
+	// Wallet address for balance queries
+	WalletAddress string
 }
 
 // Load reads configuration from environment variables
@@ -43,9 +46,12 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid BOT_COUNT: %w", err)
 	}
 
+	walletAddress := os.Getenv("WALLET_ADDRESS")
+
 	return &Config{
 		RPCURL:          rpcURL,
 		ExpectedChainID: chainID,
 		BotCount:        botCount,
+		WalletAddress:   walletAddress,
 	}, nil
 }

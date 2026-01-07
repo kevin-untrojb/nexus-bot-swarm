@@ -6,19 +6,24 @@ Bot swarm for Nexus Testnet III. Custom AMM + send/swap.
 
 ```bash
 go mod tidy
+cp .env.example .env
+# edit .env with your wallet address
 make run
 make test
 ```
 
 ## Config
 
-Connects to testnet by default. Override if needed:
+Copy `.env.example` to `.env` and set your values:
 
 ```bash
 NEXUS_RPC_URL=https://testnet.rpc.nexus.xyz
 NEXUS_CHAIN_ID=3945
 BOT_COUNT=3
+WALLET_ADDRESS=0xYourAddressHere
 ```
+
+The `.env` file is gitignored.
 
 ## Structure
 

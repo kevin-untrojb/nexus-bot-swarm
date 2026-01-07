@@ -14,6 +14,12 @@ type BlockchainClient interface {
 	// ChainID returns the connected chain's ID
 	ChainID() *big.Int
 
+	// BlockNumber returns the current block number
+	BlockNumber(ctx context.Context) (uint64, error)
+
+	// Balance returns the balance of an address in wei
+	Balance(ctx context.Context, address string) (*big.Int, error)
+
 	// Close gracefully closes the connection
 	Close()
 }
