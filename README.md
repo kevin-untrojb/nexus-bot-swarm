@@ -82,9 +82,46 @@ internal/
   nonce/              - concurrent nonce manager
 ```
 
+### Why this layout?
+
+Note: Go doesn't have an official project structure standard, but there are common conventions:
+
+| Folder | Purpose |
+|--------|---------|
+| `cmd/` | Entry points for executables |
+| `internal/` | Private code that **cannot** be imported by other repos |
+| `pkg/` | Public libraries (ok to import from other repos) |
+
+The packages `domain/`, `ports/`, `swarm/`  are outside `internal/` bc contain the core business logic and interfaces—things that aren't tied to infrastructure details. 
+The `internal/` folder contains implementation details: config loading, RPC adapters, nonce management. These are specific to this app and shouldn't be imported elsewhere.
+
+## Architecture Diagram
+
+![Architecture Diagram](docs/swarm-bots-diagram.png)
+
 ## Nexus Testnet III
 
 - Chain ID: 3945
 - RPC: https://testnet.rpc.nexus.xyz
 - Explorer: https://nexus.testnet.blockscout.com
 - Faucet: https://faucet.nexus.xyz
+
+## Future Improvements
+
+Ideas for extending this project:
+
+### Next steps
+-  **Metrics**: Track `tx_success_rate`, `avg_latency`, `nonce_gaps`
+-  **Receipt tracker**: Wait for TX confirmation, retry with backoff if pending
+-  **Deterministic mode**: `--seed 123` flag for reproducible runs
+
+### Nice to have
+-  **Simple UI**: Web dashboard showing TX history, errors, stats
+-  **Multiple wallets**: Each bot gets its own wallet (requires faucet funding)
+-  **Weighted decisions**: 70% swap, 20% transfer, 10% hold (instead of pure random)
+-  **Configurable intervals**: TX frequency via env var
+
+### Further discussions
+-  **On-chain AMM**: Deploy a real AMM contract for KEVZ/NEX swaps
+-  **Liquidity provision**: Bots add/remove liquidity
+-  **Arbitrage bot**: Monitor prices and execute profitable swaps
