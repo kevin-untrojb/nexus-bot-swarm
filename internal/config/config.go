@@ -19,6 +19,9 @@ type Config struct {
 
 	// Wallet address for balance queries
 	WalletAddress string
+
+	// Private key for signing transactions
+	PrivateKey string
 }
 
 // Load reads configuration from environment variables
@@ -47,11 +50,13 @@ func Load() (*Config, error) {
 	}
 
 	walletAddress := os.Getenv("WALLET_ADDRESS")
+	privateKey := os.Getenv("NEXUS_PRIVATE_KEY")
 
 	return &Config{
 		RPCURL:          rpcURL,
 		ExpectedChainID: chainID,
 		BotCount:        botCount,
 		WalletAddress:   walletAddress,
+		PrivateKey:      privateKey,
 	}, nil
 }

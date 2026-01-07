@@ -20,6 +20,9 @@ type BlockchainClient interface {
 	// Balance returns the balance of an address in wei
 	Balance(ctx context.Context, address string) (*big.Int, error)
 
+	// SendETH sends native currency to an address, returns tx hash
+	SendETH(ctx context.Context, privateKey string, to string, amount *big.Int) (string, error)
+
 	// Close gracefully closes the connection
 	Close()
 }
