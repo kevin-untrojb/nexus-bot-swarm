@@ -31,6 +31,7 @@ The `.env` file is gitignored.
 cmd/bot/              - entry point
 domain/               - core business logic (AMM)
 ports/                - interfaces
+swarm/                - application layer (bot orchestration)
 internal/
   config/             - env vars
   adapters/nexus/     - RPC client
