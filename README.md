@@ -25,14 +25,15 @@ WALLET_ADDRESS=0xYourAddressHere
 
 The `.env` file is gitignored.
 
-## Structure
+## Structure (Hexagonal)
 
 ```
-cmd/bot/          - entry point
+cmd/bot/              - entry point
+domain/               - core business logic (AMM)
+ports/                - interfaces
 internal/
-  config/         - env vars
-  ports/          - interfaces
-  adapters/nexus/ - RPC client
+  config/             - env vars
+  adapters/nexus/     - RPC client
 ```
 
 ## TODO
