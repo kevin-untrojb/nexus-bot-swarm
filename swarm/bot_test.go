@@ -58,8 +58,8 @@ func TestBot_Run_PerformsSwaps(t *testing.T) {
 
 	go bot.Run(ctx, errCh)
 
-	// let it do some swaps
-	time.Sleep(250 * time.Millisecond)
+	// let it do some swaps (500ms ticker, so wait 1.5s for at least 2 swaps)
+	time.Sleep(1500 * time.Millisecond)
 
 	cancel()
 	<-errCh

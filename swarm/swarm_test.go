@@ -68,8 +68,8 @@ func TestSwarm_ConcurrentSwaps(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := swarm.Start(ctx)
 
-	// let bots swap
-	time.Sleep(300 * time.Millisecond)
+	// let bots swap (500ms ticker, 5 bots, wait 1.5s for multiple swaps)
+	time.Sleep(1500 * time.Millisecond)
 
 	cancel()
 

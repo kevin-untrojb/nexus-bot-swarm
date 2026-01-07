@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/nexus-bot-swarm/domain"
 	"github.com/nexus-bot-swarm/internal/adapters/nexus"
 	"github.com/nexus-bot-swarm/internal/config"
@@ -17,6 +18,9 @@ import (
 
 func main() {
 	log.Println("🚀 Starting Nexus Bot Swarm...")
+
+	// Load .env file (ignore error if not exists)
+	_ = godotenv.Load()
 
 	// Load configuration
 	cfg, err := config.Load()
@@ -57,10 +61,21 @@ func main() {
 
 	// Create and start swarm
 	ctx, cancel := context.WithCancel(context.Background())
-	botSwarm := swarm.NewSwarm(cfg.BotCount, pool)
-	errCh := botSwarm.Start(ctx)
 
-	log.Printf("🤖 Swarm started with %d bots. Press Ctrl+C to stop...", cfg.BotCount)
+	var botSwarm *swarm.Swarm
+	if cfg.PrivateKey != "" && cfg.WalletAddress != "" {
+		// real TX mode
+		botSwarm = swarm.NewSwarmWithClient(cfg.BotCount, pool, client, cfg.PrivateKey, cfg.WalletAddress)
+		log.Printf("🤖 Swarm started with %d bots (REAL TX MODE). Press Ctrl+C to stop...", cfg.BotCount)
+		log.Printf("💸 Bots will send real transactions every 5 seconds")
+	} else {
+		// simulation only
+		botSwarm = swarm.NewSwarm(cfg.BotCount, pool)
+		log.Printf("🤖 Swarm started with %d bots (SIMULATION MODE). Press Ctrl+C to stop...", cfg.BotCount)
+		log.Println("ℹ️  Set NEXUS_PRIVATE_KEY and WALLET_ADDRESS in .env for real TX")
+	}
+
+	errCh := botSwarm.Start(ctx)
 
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)

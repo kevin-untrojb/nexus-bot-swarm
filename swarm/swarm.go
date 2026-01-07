@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/nexus-bot-swarm/domain"
+	"github.com/nexus-bot-swarm/ports"
 )
 
 // Swarm coordinates multiple bots operating on a shared pool
@@ -14,11 +15,23 @@ type Swarm struct {
 	pool *domain.Pool
 }
 
-// NewSwarm creates a swarm with the specified number of bots
+// NewSwarm creates a swarm with the specified number of bots (simulation only)
 func NewSwarm(botCount int, pool *domain.Pool) *Swarm {
 	bots := make([]*Bot, botCount)
 	for i := 0; i < botCount; i++ {
 		bots[i] = NewBot(i+1, pool)
+	}
+	return &Swarm{
+		bots: bots,
+		pool: pool,
+	}
+}
+
+// NewSwarmWithClient creates a swarm that can send real transactions
+func NewSwarmWithClient(botCount int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string) *Swarm {
+	bots := make([]*Bot, botCount)
+	for i := 0; i < botCount; i++ {
+		bots[i] = NewBotWithClient(i+1, pool, client, privateKey, walletAddress)
 	}
 	return &Swarm{
 		bots: bots,
