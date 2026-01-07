@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -169,4 +170,102 @@ func (c *Client) Close() {
 	if c.client != nil {
 		c.client.Close()
 	}
+}
+
+// =============================================================================
+// ERC20 Token Methods
+// =============================================================================
+
+// TokenBalance returns the token balance of an address
+func (c *Client) TokenBalance(ctx context.Context, tokenAddress string, walletAddress string) (*big.Int, error) {
+	if c.client == nil {
+		return nil, fmt.Errorf("client not connected")
+	}
+
+	if !common.IsHexAddress(tokenAddress) || !common.IsHexAddress(walletAddress) {
+		return nil, fmt.Errorf("invalid address")
+	}
+
+	token := common.HexToAddress(tokenAddress)
+	wallet := common.HexToAddress(walletAddress)
+
+	// balanceOf(address) selector = keccak256("balanceOf(address)")[:4] = 0x70a08231
+	selector := []byte{0x70, 0xa0, 0x82, 0x31}
+
+	// ABI encode the address (32 bytes, left-padded)
+	paddedAddress := common.LeftPadBytes(wallet.Bytes(), 32)
+
+	// data = selector + paddedAddress
+	data := append(selector, paddedAddress...)
+
+	// Call the contract
+	result, err := c.client.CallContract(ctx, ethereum.CallMsg{
+		To:   &token,
+		Data: data,
+	}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call balanceOf: %w", err)
+	}
+
+	// Parse result (uint256)
+	balance := new(big.Int).SetBytes(result)
+	return balance, nil
+}
+
+// TransferToken sends ERC20 tokens to an address
+func (c *Client) TransferToken(ctx context.Context, tokenAddress string, privateKeyHex string, to string, amount *big.Int, nonce uint64) (string, error) {
+	if c.client == nil {
+		return "", fmt.Errorf("client not connected")
+	}
+
+	// parse private key
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		return "", fmt.Errorf("invalid private key: %w", err)
+	}
+
+	// validate addresses
+	if !common.IsHexAddress(tokenAddress) || !common.IsHexAddress(to) {
+		return "", fmt.Errorf("invalid address")
+	}
+
+	token := common.HexToAddress(tokenAddress)
+	toAddress := common.HexToAddress(to)
+
+	// transfer(address,uint256) selector = keccak256("transfer(address,uint256)")[:4] = 0xa9059cbb
+	selector := []byte{0xa9, 0x05, 0x9c, 0xbb}
+
+	// ABI encode: address (32 bytes) + uint256 (32 bytes)
+	paddedTo := common.LeftPadBytes(toAddress.Bytes(), 32)
+	paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
+
+	// data = selector + paddedTo + paddedAmount
+	data := append(selector, paddedTo...)
+	data = append(data, paddedAmount...)
+
+	// estimate gas price
+	gasPrice, err := c.client.SuggestGasPrice(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gas price: %w", err)
+	}
+
+	// gas limit for token transfer (higher than simple ETH transfer)
+	gasLimit := uint64(100000)
+
+	// create transaction (value = 0, we're calling a contract)
+	tx := types.NewTransaction(nonce, token, big.NewInt(0), gasLimit, gasPrice, data)
+
+	// sign transaction
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(c.chainID), privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign tx: %w", err)
+	}
+
+	// send transaction
+	err = c.client.SendTransaction(ctx, signedTx)
+	if err != nil {
+		return "", fmt.Errorf("failed to send tx: %w", err)
+	}
+
+	return signedTx.Hash().Hex(), nil
 }

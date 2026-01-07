@@ -72,9 +72,28 @@ func main() {
 		log.Printf("🔢 Starting nonce: %d", startNonce)
 
 		// real TX mode with nonce manager
-		botSwarm = swarm.NewSwarmWithClient(cfg.BotCount, pool, client, cfg.PrivateKey, cfg.WalletAddress, startNonce)
+		botSwarm = swarm.NewSwarmWithClient(cfg.BotCount, pool, client, cfg.PrivateKey, cfg.WalletAddress, cfg.TokenAddress, startNonce)
 		log.Printf("🤖 Swarm started with %d bots (REAL TX MODE). Press Ctrl+C to stop...", cfg.BotCount)
-		log.Printf("💸 Bots will send real transactions every 5 seconds (with nonce manager)")
+
+		if cfg.TokenAddress != "" {
+			log.Printf("🪙 Token Mode: Bots will transfer KEVZ tokens")
+			log.Printf("📝 Token contract: %s", cfg.TokenAddress)
+
+			// Show initial token balance
+			tokenBalance, err := client.TokenBalance(connectCtx, cfg.TokenAddress, cfg.WalletAddress)
+			if err != nil {
+				log.Printf("⚠️ Could not get token balance: %v", err)
+			} else {
+				// Convert from wei to tokens (18 decimals)
+				tokenBalanceFloat := new(big.Float).SetInt(tokenBalance)
+				divisor := new(big.Float).SetInt(big.NewInt(1000000000000000000))
+				tokenBalanceFloat.Quo(tokenBalanceFloat, divisor)
+				log.Printf("💰 Token balance: %s KEVZ", tokenBalanceFloat.Text('f', 2))
+			}
+		} else {
+			log.Printf("💸 NEX Mode: Bots will send 1 wei to self")
+		}
+		log.Printf("⏰ Transactions every 10 seconds")
 	} else {
 		// simulation only
 		botSwarm = swarm.NewSwarm(cfg.BotCount, pool)

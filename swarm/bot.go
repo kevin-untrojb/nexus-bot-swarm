@@ -21,6 +21,7 @@ type Bot struct {
 	privateKey    string
 	walletAddress string
 	nonceManager  *nonce.Manager
+	tokenAddress  string // ERC20 token contract address
 }
 
 // NewBot creates a new bot with the given ID and pool reference
@@ -32,7 +33,7 @@ func NewBot(id int, pool *domain.Pool) *Bot {
 }
 
 // NewBotWithClient creates a bot that can send real transactions
-func NewBotWithClient(id int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string, nonceManager *nonce.Manager) *Bot {
+func NewBotWithClient(id int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress, tokenAddress string, nonceManager *nonce.Manager) *Bot {
 	return &Bot{
 		ID:            id,
 		pool:          pool,
@@ -40,12 +41,18 @@ func NewBotWithClient(id int, pool *domain.Pool, client ports.BlockchainClient, 
 		privateKey:    privateKey,
 		walletAddress: walletAddress,
 		nonceManager:  nonceManager,
+		tokenAddress:  tokenAddress,
 	}
 }
 
 // CanSendRealTX returns true if bot is configured for real transactions
 func (b *Bot) CanSendRealTX() bool {
 	return b.client != nil && b.privateKey != "" && b.walletAddress != "" && b.nonceManager != nil
+}
+
+// CanTransferTokens returns true if bot is configured for ERC20 transfers
+func (b *Bot) CanTransferTokens() bool {
+	return b.CanSendRealTX() && b.tokenAddress != ""
 }
 
 // Run starts the bot's main loop
@@ -58,10 +65,10 @@ func (b *Bot) Run(ctx context.Context, errCh chan<- error) {
 	swapTicker := time.NewTicker(500 * time.Millisecond)
 	defer swapTicker.Stop()
 
-	// real TX ticker (slow, every 5 seconds)
+	// real TX ticker (slow, every 10 seconds to avoid rate limiting)
 	var realTxTicker *time.Ticker
 	if b.CanSendRealTX() {
-		realTxTicker = time.NewTicker(5 * time.Second)
+		realTxTicker = time.NewTicker(10 * time.Second)
 		defer realTxTicker.Stop()
 		log.Printf("[Bot %d] Started (real TX enabled with nonce manager)", b.ID)
 	} else {
@@ -122,12 +129,25 @@ func (b *Bot) performRealTX(ctx context.Context) {
 	// get nonce from manager (atomic, no collisions)
 	txNonce := b.nonceManager.GetNonce()
 
-	// send 1 wei to self
-	amount := big.NewInt(1)
+	var txHash string
+	var err error
 
-	log.Printf("[Bot %d] 📤 Sending TX with nonce %d...", b.ID, txNonce)
+	if b.CanTransferTokens() {
+		// Transfer ERC20 tokens (1 token = 1e18 wei of token)
+		amount := big.NewInt(1000000000000000000) // 1 KEVZ token
 
-	txHash, err := b.client.SendETHWithNonce(ctx, b.privateKey, b.walletAddress, amount, txNonce)
+		log.Printf("[Bot %d] 🪙 Transferring 1 KEVZ (nonce %d)...", b.ID, txNonce)
+
+		txHash, err = b.client.TransferToken(ctx, b.tokenAddress, b.privateKey, b.walletAddress, amount, txNonce)
+	} else {
+		// Fallback: send 1 wei NEX to self
+		amount := big.NewInt(1)
+
+		log.Printf("[Bot %d] 📤 Sending 1 wei NEX (nonce %d)...", b.ID, txNonce)
+
+		txHash, err = b.client.SendETHWithNonce(ctx, b.privateKey, b.walletAddress, amount, txNonce)
+	}
+
 	if err != nil {
 		log.Printf("[Bot %d] ❌ TX failed (nonce %d): %v", b.ID, txNonce, err)
 

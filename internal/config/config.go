@@ -22,6 +22,9 @@ type Config struct {
 
 	// Private key for signing transactions
 	PrivateKey string
+
+	// ERC20 token contract address (KevzToken)
+	TokenAddress string
 }
 
 // Load reads configuration from environment variables
@@ -51,6 +54,7 @@ func Load() (*Config, error) {
 
 	walletAddress := os.Getenv("WALLET_ADDRESS")
 	privateKey := os.Getenv("NEXUS_PRIVATE_KEY")
+	tokenAddress := os.Getenv("TOKEN_ADDRESS")
 
 	return &Config{
 		RPCURL:          rpcURL,
@@ -58,5 +62,6 @@ func Load() (*Config, error) {
 		BotCount:        botCount,
 		WalletAddress:   walletAddress,
 		PrivateKey:      privateKey,
+		TokenAddress:    tokenAddress,
 	}, nil
 }

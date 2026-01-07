@@ -31,14 +31,15 @@ func NewSwarm(botCount int, pool *domain.Pool) *Swarm {
 
 // NewSwarmWithClient creates a swarm that can send real transactions
 // startNonce should be fetched from the RPC before calling this
-func NewSwarmWithClient(botCount int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress string, startNonce uint64) *Swarm {
+// tokenAddress is optional - if provided, bots will transfer ERC20 tokens instead of NEX
+func NewSwarmWithClient(botCount int, pool *domain.Pool, client ports.BlockchainClient, privateKey, walletAddress, tokenAddress string, startNonce uint64) *Swarm {
 	// create shared nonce manager
 	nm := nonce.NewManager(startNonce)
 
 	bots := make([]*Bot, botCount)
 	for i := 0; i < botCount; i++ {
 		// all bots share the same nonce manager
-		bots[i] = NewBotWithClient(i+1, pool, client, privateKey, walletAddress, nm)
+		bots[i] = NewBotWithClient(i+1, pool, client, privateKey, walletAddress, tokenAddress, nm)
 	}
 	return &Swarm{
 		bots:         bots,

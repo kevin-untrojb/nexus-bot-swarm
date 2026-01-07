@@ -29,6 +29,12 @@ type BlockchainClient interface {
 	// GetNonce returns the current pending nonce for an address
 	GetNonce(ctx context.Context, address string) (uint64, error)
 
+	// TokenBalance returns the ERC20 token balance of an address
+	TokenBalance(ctx context.Context, tokenAddress string, walletAddress string) (*big.Int, error)
+
+	// TransferToken sends ERC20 tokens to an address
+	TransferToken(ctx context.Context, tokenAddress string, privateKey string, to string, amount *big.Int, nonce uint64) (string, error)
+
 	// Close gracefully closes the connection
 	Close()
 }
